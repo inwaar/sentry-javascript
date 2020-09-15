@@ -32,6 +32,16 @@ describe('Hub', () => {
       expect(hub.getScope()?.getTransaction()).toBe(transaction);
     });
 
+    it('should find an unsampled transaction which has been set on the scope', () => {
+      const hub = new Hub(new BrowserClient({ tracesSampleRate: 1 }));
+      const transaction = hub.startTransaction({ name: 'dogpark', sampled: false });
+      hub.configureScope(scope => {
+        scope.setSpan(transaction);
+      });
+
+      expect(hub.getScope()?.getTransaction()).toBe(transaction);
+    });
+
     it("should not find an open transaction if it's not on the scope", () => {
       const hub = new Hub(new BrowserClient({ tracesSampleRate: 1 }));
       hub.startTransaction({ name: 'dogpark' });
