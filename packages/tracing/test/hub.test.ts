@@ -193,6 +193,14 @@ describe('Hub', () => {
         expect(transaction.sampled).toBe(false);
       });
 
+      it('should not try to override sampling decision provided in transaction context', () => {
+        // setting tracesSampleRate to 1 means that without the override, the sampling decision should be true
+        const hub = new Hub(new BrowserClient({ tracesSampleRate: 1 }));
+        const transaction = hub.startTransaction({ name: 'dogpark', sampled: false });
+
+        expect(transaction.sampled).toBe(false);
+      });
+
       it('should not sample transactions when tracesSampleRate is 0', () => {
         const hub = new Hub(new BrowserClient({ tracesSampleRate: 0 }));
         const transaction = hub.startTransaction({ name: 'dogpark' });
