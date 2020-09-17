@@ -7,6 +7,7 @@ import {
   BrowserTracing,
   BrowserTracingOptions,
   DEFAULT_MAX_TRANSACTION_DURATION_SECONDS,
+  getHeaderContext,
   getMetaContent,
 } from '../../src/browser/browsertracing';
 import { defaultRequestInstrumentionOptions } from '../../src/browser/request';
@@ -340,22 +341,84 @@ describe('BrowserTracing', () => {
       });
     });
   });
-});
 
-describe('getMeta', () => {
-  it('returns a found meta tag contents', () => {
-    const name = 'sentry-trace';
-    const content = '126de09502ae4e0fb26c6967190756a4-b6e54397b12a2a0f-1';
-    document.head.innerHTML = `<meta name="${name}" content="${content}">`;
+  describe('sentry-trace <meta> element', () => {
+    describe('getMetaContent', () => {
+      it('finds the specified tag and extracts the value', () => {
+        const name = 'sentry-trace';
+        const content = '126de09502ae4e0fb26c6967190756a4-b6e54397b12a2a0f-1';
+        document.head.innerHTML = `<meta name="${name}" content="${content}">`;
 
-    const meta = getMetaContent(name);
-    expect(meta).toBe(content);
-  });
+        const meta = getMetaContent(name);
+        expect(meta).toBe(content);
+      });
 
-  it('only returns meta tags queried for', () => {
-    document.head.innerHTML = `<meta name="not-test">`;
+      it("doesn't return meta tags other than the one specified", () => {
+        document.head.innerHTML = `<meta name="not-test">`;
 
-    const meta = getMetaContent('test');
-    expect(meta).toBe(null);
+        const meta = getMetaContent('test');
+        expect(meta).toBe(null);
+      });
+    });
+
+    describe('getHeaderContext', () => {
+      it('correctly parses a valid sentry-trace meta header', () => {
+        document.head.innerHTML = `<meta name="sentry-trace" content="12312012123120121231201212312012-1121201211212012-0">`;
+
+        const headerContext = getHeaderContext();
+
+        expect(headerContext).toBeDefined();
+        expect(headerContext!.traceId).toEqual('12312012123120121231201212312012');
+        expect(headerContext!.parentSpanId).toEqual('1121201211212012');
+        expect(headerContext!.parentSampled).toEqual(false);
+      });
+
+      it('returns undefined if the header is malformed', () => {
+        document.head.innerHTML = `<meta name="sentry-trace" content="12312012-112120121-0">`;
+
+        const headerContext = getHeaderContext();
+
+        expect(headerContext).toBeUndefined();
+      });
+
+      it("returns undefined if the header isn't there", () => {
+        document.head.innerHTML = `<meta name="dogs" content="12312012123120121231201212312012-1121201211212012-0">`;
+
+        const headerContext = getHeaderContext();
+
+        expect(headerContext).toBeUndefined();
+      });
+    });
+
+    describe('using the data', () => {
+      it('uses the data for pageload transactions', () => {
+        document.head.innerHTML = `<meta name="sentry-trace" content="12312012123120121231201212312012-1121201211212012-0">`;
+
+        // pageload transactions are created as part of the BrowserTracing integration's initialization
+        createBrowserTracing(true);
+        const transaction = getActiveTransaction(hub) as IdleTransaction;
+
+        expect(transaction).toBeDefined();
+        expect(transaction.op).toBe('pageload');
+        expect(transaction.traceId).toEqual('12312012123120121231201212312012');
+        expect(transaction.parentSpanId).toEqual('1121201211212012');
+        expect(transaction.sampled).toBe(false);
+      });
+
+      it('ignores the data for navigation transactions', () => {
+        mockChangeHistory = () => undefined;
+        document.head.innerHTML = `<meta name="sentry-trace" content="12312012123120121231201212312012-1121201211212012-0">`;
+
+        createBrowserTracing(true);
+
+        mockChangeHistory({ to: 'here', from: 'there' });
+        const transaction = getActiveTransaction(hub) as IdleTransaction;
+
+        expect(transaction).toBeDefined();
+        expect(transaction.op).toBe('navigation');
+        expect(transaction.traceId).not.toEqual('12312012123120121231201212312012');
+        expect(transaction.parentSpanId).toBeUndefined();
+      });
+    });
   });
 });

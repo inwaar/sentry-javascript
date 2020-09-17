@@ -192,9 +192,11 @@ export class BrowserTracing implements Integration {
     // eslint-disable-next-line @typescript-eslint/unbound-method
     const { beforeNavigate, idleTimeout, maxTransactionDuration } = this.options;
 
+    const parentContextFromHeader = context.op === 'pageload' ? getHeaderContext() : undefined;
+
     const expandedContext = {
       ...context,
-      ...getHeaderContext(),
+      ...parentContextFromHeader,
       trimEnd: true,
     };
     const modifiedContext = typeof beforeNavigate === 'function' ? beforeNavigate(expandedContext) : expandedContext;
@@ -225,7 +227,7 @@ export class BrowserTracing implements Integration {
  *
  * @returns Transaction context data from the header or undefined if there's no header or the header is malformed
  */
-function getHeaderContext(): Partial<TransactionContext> | undefined {
+export function getHeaderContext(): Partial<TransactionContext> | undefined {
   const header = getMetaContent('sentry-trace');
   if (header) {
     return extractTraceparentData(header);
