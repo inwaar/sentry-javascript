@@ -159,6 +159,12 @@ export function _fetchCallback(
 
   const activeTransaction = getActiveTransaction();
   if (activeTransaction) {
+    // TODO: If sampled = false, we're creating a span here merely to be able to use the toTraceparent method (the span
+    // won't be stored anywhere, so it'll get garbage collected when it goes out of scope here). Further, that header is
+    // going to contain a parentId for a span which won't exist past this moment, which feels like a little bit of a
+    // lie. (If the sampling decision is inherited on the backend, it doesn't matter, but in case it isn't...) Perhaps
+    // toTraceparent should be a function instead, and return a header w a traceId and sampling decision but no parentId
+    // if the parent is unsampled? (The same thing applies to the XHR callback.)
     const span = activeTransaction.startChild({
       data: {
         ...handlerData.fetchData,
