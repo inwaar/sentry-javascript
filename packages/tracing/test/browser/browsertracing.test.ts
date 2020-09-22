@@ -177,7 +177,7 @@ describe('BrowserTracing', () => {
         expect(mockBeforeNavigation).toHaveBeenCalledTimes(1);
       });
 
-      it('creates an unsampled transaction if it returns undefined', () => {
+      it('creates a transaction with sampled = false if it returns undefined', () => {
         const mockBeforeNavigation = jest.fn().mockReturnValue(undefined);
         createBrowserTracing(true, {
           beforeNavigate: mockBeforeNavigation,
